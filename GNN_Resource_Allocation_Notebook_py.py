@@ -102,9 +102,9 @@ def generate_cost_time_matrix(num_tasks: int, num_vms: int):
     """
     Gera matrizes aleatórias de tempo e custo.
     """
-    # Tempo: e.g., de 10 a 100 unidades
+    # Tempo: ex, de 10 a 100 unidades
     times = np.random.randint(10, 101, size=(num_tasks, num_vms)).astype(np.float32)
-    # Custo: e.g., de 1 a 20 unidades
+    # Custo: ex, de 1 a 20 unidades
     costs = np.random.randint(1, 21, size=(num_tasks, num_vms)).astype(np.float32)
     return times, costs
 
@@ -133,8 +133,7 @@ plt.show()
 # CÉLULA 3: O Simulador (Ground Truth)
 # ==============================================================================
 #
-# Esta é uma função crucial. Ela NÃO é uma GNN.
-# É um simulador que calcula o Makespan (C_max) e Custo Total (C_total)
+# Simulador que calcula o Makespan (C_max) e Custo Total (C_total)
 # para uma DADA alocação.
 # Usaremos isso para treinar a GNN_Aval.
 #
@@ -433,9 +432,9 @@ print(f"\nSaída Dummy GNN_Aval (shape): {pred.shape}")
 #
 # Objetivo: Ensinar a GNN_Aval a ser um bom simulador.
 #
-# 1. Gerar (Problema, Alocação) -> **MELHORIA: Usar heurísticas, não só aleatório**
+# 1. Gerar (Problema, Alocação)
 # 2. Calcular (Makespan Real, Custo Real) com o simulador (Célula 3)
-# 3. **MELHORIA: Normalizar (Makespan, Custo) para a loss ser estável**
+# 3. Normalizando (Makespan, Custo) para a loss ser estável*
 # 4. Treinar GNN_Aval(Problema + Alocação) para prever (Makespan Norm, Custo Norm)
 # 5. Loss: MSE
 #
@@ -524,7 +523,6 @@ def create_training_sample_for_aval(num_tasks_base, num_vms):
     alloc_costs = torch.zeros(num_nodes, 1)
 
     for node_id, vm_id in alloc_dict.items():
-        # A CORREÇÃO DO TypeError VEM AQUI:
         alloc_times[node_id] = torch.tensor(time_m[node_id, vm_id])
         alloc_costs[node_id] = torch.tensor(cost_m[node_id, vm_id])
 
@@ -537,7 +535,7 @@ def create_training_sample_for_aval(num_tasks_base, num_vms):
 
     return pyg_data, y_true
 
-# --- MELHORIA: Função de Validação ---
+# --- Função de Validação ---
 def validate_gnn_aval(model, normalizer, num_samples=100):
     model.eval() # Coloca o modelo em modo de avaliação
 
@@ -581,7 +579,7 @@ gnn_aval = GNN_Aval(hidden_dim=HIDDEN_DIM, out_dim=OUT_DIM, num_layers=NUM_LAYER
 optimizer_aval = optim.Adam(gnn_aval.parameters(), lr=1e-3)
 loss_fn_aval = nn.MSELoss()
 
-# MELHORIA: Normalizador de Alvo
+# Normalizador de Alvo
 target_normalizer = TargetNormalizer()
 
 NUM_EPOCHS_AVAL = 850 # Reduzido mas com mais iterações por época
@@ -641,7 +639,7 @@ for epoch in tqdm(range(NUM_EPOCHS_AVAL)):
     train_losses.append(epoch_loss / STEPS_PER_EPOCH_AVAL)
 
     if (epoch + 1) % 50 == 0:
-        # MELHORIA: Roda a validação e imprime a acurácia
+        # Roda a validação e imprime a acurácia
         acc_m, acc_c = validate_gnn_aval(gnn_aval, target_normalizer, num_samples=20)
         val_acc_makespan.append(acc_m)
         val_acc_cost.append(acc_c)
@@ -729,8 +727,7 @@ class GNN_Aloc(torch.nn.Module):
 
         # 2. Camadas de Convolução
         for conv in self.convs:
-            # A CORREÇÃO ESTÁ AQUI:
-            # Simplesmente passamos todos os dicionários. A HeteroConv
+            # Passamos todos os dicionários. A HeteroConv
             # é inteligente o suficiente para rotear os 'edge_attr'
             # apenas para as camadas GATConv que os esperam (aquelas com edge_dim=2).
             x_dict_update = conv(x_dict, edge_index_dict, edge_attr_dict=edge_attr_dict)
@@ -784,11 +781,11 @@ print(f"Soma da Hard Alloc (task 0): {hard_alloc[0].sum().item()}") # Deve ser 1
 
 print("\nIniciando Treinamento da GNN_Aloc...")
 
-# 1. Carregar GNN_Aval - CORREÇÃO APLICADA
+# 1. Carregar GNN_Aval
 gnn_aval_frozen = GNN_Aval(hidden_dim=HIDDEN_DIM, out_dim=OUT_DIM, num_layers=NUM_LAYERS, heads=HEADS)
 gnn_aval_frozen.load_state_dict(torch.load("gnn_aval_pretrained.pth"))
 
-# CORREÇÃO: Congelar parâmetros mas permitir gradientes através do grafo computacional
+# Congelar parâmetros mas permitir gradientes através do grafo computacional
 for param in gnn_aval_frozen.parameters():
     param.requires_grad = False  # Não atualizar os parâmetros durante o treino
 
@@ -815,7 +812,7 @@ NUM_VMS = 3  # Reduzido
 gnn_aloc = GNN_Aloc(hidden_dim=HIDDEN_DIM, num_vms=NUM_VMS, num_layers=3, heads=HEADS)
 optimizer_aloc = optim.Adam(gnn_aloc.parameters(), lr=1e-5) # LR menor é mais seguro
 
-# 4. Adicionar scheduler para learning rate - CORREÇÃO: remover 'verbose'
+# 4. Adicionar scheduler para learning rate
 scheduler_aloc = optim.lr_scheduler.ReduceLROnPlateau(optimizer_aloc, mode='min', 
                                                      factor=0.5, patience=100)
 
